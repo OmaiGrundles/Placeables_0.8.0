@@ -25,7 +25,16 @@ data:extend({
         size = 32,
         scale = 1,
         flags = {"gui-icon"}
-    }
+    },
+    {
+        type = "sprite",
+        name = "spritePlaceablesIcon",
+        filename = "__Placeables__/graphics/placeablesIcon.png",
+        priority = "extra-high-no-scale",
+        size = 64,
+        scale = 1,
+        flags = {"gui-icon"}
+    },
 })
 
 data:extend({

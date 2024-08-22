@@ -1,8 +1,8 @@
 {
   "name": "Placeables",
-  "version": "1.1.5",
+  "version": "1.4.2",
   "factorio_version": "1.1",
-  "title": "Placeables: Show everything you can build with!",
+  "title": "Placeables: Show items in your inventory that you can build with!",
   "author": "OmaiGrundles",
-  "description": "A quickbar-inspired window that shows all items you can use for building. Designed for use with megamods (Pyanodon's, Bob's/Angel's, and Krastorio for example) that add so many buildings that the quickbar can't handle them all."
+  "description": "A hotbar-inspired GUI that shows all items you can use for building that is currently in your inventory. Designed for use with megamods (Pyanodon's, Bob's / Angel's, and Krastorio for example) that add so many buildings that the hotbar can't handle them all."
 }

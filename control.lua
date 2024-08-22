@@ -1,13 +1,13 @@
 --TODO LIST
 --   Change graphic for button on top left
 --   Add shortcut button using graphic mentioned above
+--   Add more condensed function for when a player is created vs when the game starts
 
 local mod_gui = require("mod-gui")
 
 --globals and their initial states
 --playerData = {}
 --itemValidCache = {}
---ignoreEventFlag = false
 
 local function CreatePlayerData(playerIndex)
 	local playerData = global.playerData
@@ -23,14 +23,31 @@ local function CreatePlayerData(playerIndex)
 			buttonCache = {},
 			settingColumns = 7,
 			settingQuickbarMode = false,
-			itemLocaleCache = {}
+			itemLocaleCache = {},
+			lastEmptySlot = -1,
+			lastEventTick = 0,
+			ignoreNextUpdate = false
 		}
 	end
-	--Create the settingColumns and settingQuickbarMode fields if updating from older version
+
+	--Create the lastEmptySlot value if updating past 1.3.1
+	if playerData[playerIndex].lastEventTick == nil then
+		playerData[playerIndex].lastEventTick = 0
+	end
+	if playerData[playerIndex].ignoreNextUpdate == nil then
+		playerData[playerIndex].ignoreNextUpdate = false
+	end
+
+	--Create the lastEmptySlot value if updating past 1.2.3
+	if playerData[playerIndex].lastEmptySlot == nil then
+		playerData[playerIndex].lastEmptySlot = -1
+	end
+
+	--Create the settingColumns and settingQuickbarMode fields if updating from older version (at this point its a really old version...)
 	if playerData[playerIndex].settingColumns == nil then
 		local player = game.get_player(playerIndex)
 		--Record the amount of columns the player had displayed previously
-		playerData[playerIndex].settingColumns = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.framePlaceablesTable.column_count
+		playerData[playerIndex].settingColumns = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.framePlaceablesTable.column_count
 		--Record if quickbar mode was previously on
 		if player.gui.screen.framePlaceablesOuter.placeablesTitleFlow.buttonPlaceablesModeSwitch.sprite == "spriteOrangeCircle" then
 			playerData[playerIndex].settingQuickbarMode = true
@@ -39,6 +56,7 @@ local function CreatePlayerData(playerIndex)
 		end
 	end
 end
+
 
 local function CreateTitleFlow(player, outerFrame)
 	local titleFlow = outerFrame.placeablesTitleFlow
@@ -62,6 +80,7 @@ local function CreateTitleFlow(player, outerFrame)
 	end
 end
 
+
 local function DestroyModButton(player)
 	local gui = player.gui.top
 	local flow = gui.mod_gui_button_flow or (gui.mod_gui_top_frame and gui.mod_gui_top_frame.mod_gui_inner_frame)
@@ -78,6 +97,7 @@ local function DestroyModButton(player)
 	end
 end
 
+
 local function CreateModButton(playerIndex)
 	local player = game.get_player(playerIndex)
 	DestroyModButton(player)
@@ -85,16 +105,17 @@ local function CreateModButton(playerIndex)
 		return
 	end
 	mod_gui.get_button_flow(player).add{
-		type = "button",
+		type = "sprite-button",
 		name = "buttonPlaceablesVisible",
-		caption = "P", 
+		sprite = "spritePlaceablesIcon",
 		style = mod_gui.button_style,
 		tooltip = {"placeablesTooltips.topButton"}
 	}
 end
 
+
 local function CreateGUI(player)
-	playerData = global.playerData[player.index]
+	local playerData = global.playerData[player.index]
 	--Make button on top-left of screen
 	CreateModButton(player.index)
 
@@ -113,21 +134,41 @@ local function CreateGUI(player)
 		--Middle layer, after the horizontal flow, borders the buttons
 		outerFrame.add{type = "frame", name = "framePlaceablesInner", style = "quick_bar_inner_panel"}
 
+		--Scroll Pane for PlaceablesTable
+		outerFrame.framePlaceablesInner.add{type = "scroll-pane", name = "scrollPanePlaceables", horizontal_scroll_policy = "never", vertical_scroll_policy = "always"}
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.padding = 0
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.margin = 0
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 64 * player.mod_settings["placeablesSettingRowHeight"].value
 		--Table that holds all the buttons for each unique placeable item
-		outerFrame.framePlaceablesInner.add{type = "table", name = "framePlaceablesTable", column_count = playerData.settingColumns, style = "quick_bar_slot_table"}
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.add{type = "table", name = "framePlaceablesTable", column_count = playerData.settingColumns, style = "quick_bar_slot_table"}
 	end
+
+	if player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables == nil then
+		local outerFrame = player.gui.screen.framePlaceablesOuter
+		--Remove placeable table so that a new one is in a scroll pane
+		outerFrame.framePlaceablesInner.framePlaceablesTable.destroy()
+
+		--Scroll Pane for PlaceablesTable
+		outerFrame.framePlaceablesInner.add{type = "scroll-pane", name = "scrollPanePlaceables", horizontal_scroll_policy = "never", vertical_scroll_policy = "always"}
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.padding = 0
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.margin = 0
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 64 * player.mod_settings["placeablesSettingRowHeight"].value
+		--Table that holds all the buttons for each unique placeable item
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.add{type = "table", name = "framePlaceablesTable", column_count = playerData.settingColumns, style = "quick_bar_slot_table"}
+	end
+
 	--If the player updated from version 0.9.25 or older, we need to remake the title flow
 	if player.gui.screen.framePlaceablesOuter.placeablesTitleFlow.placeablesTitleDragLeft == nil then
 		CreateTitleFlow(player, player.gui.screen.framePlaceablesOuter)
 	end
 end
 
+
 local function QuickbarMode(player, rows)
 	--The goal of Quickbar Mode is to keep the bottom of the frame locked in place, instead of the top, when the frame's size changes
 	local playerData = global.playerData[player.index]
 	local frameLocation = player.gui.screen.framePlaceablesOuter.location
 	local newLocation = {x = frameLocation.x, y = frameLocation.y}
-	local lastRows = playerData.lastRows
 	local gameResolution = player.display_resolution
 	local gameScale = player.display_scale
 	local buttonHeight = 40
@@ -171,6 +212,7 @@ local function QuickbarMode(player, rows)
 	player.gui.screen.framePlaceablesOuter.location = frameLocation
 end
 
+
 local function CreateItemButtons(player, guiTable)
 	local playerData = global.playerData[player.index]
 	local buttonData = playerData.buttonData
@@ -192,8 +234,10 @@ local function CreateItemButtons(player, guiTable)
 			value.buttonIndex = buttonIndex
 		else
 			--..Or modify the existing button to display new info
-			button = buttonCache[buttonIndex]
-			if button.number ~= value.count then button.number = value.count end
+			local button = buttonCache[buttonIndex]
+			if button.number ~= value.count then 
+				button.number = value.count 
+			end
 			if button.sprite ~= "item/"..key then
 				button.sprite = "item/"..key
 				button.tooltip = itemLocaleCache[key]
@@ -223,12 +267,15 @@ local function CreateItemButtons(player, guiTable)
 	global.playerData[player.index].lastCollapsedState = global.playerData[player.index].placeablesCollapsedState
 end
 
+
 local function IsPlaceableItem(prototype)
 	local placeResult = prototype.place_result
 	if placeResult ~= nil then
 		--Don't add robots to the list
 		if placeResult.type ~= "construction-robot" and placeResult.type ~= "logistic-robot" then
 			return true
+		else
+			return false
 		end
 	else
 		--Item is valid if its something like concrete or red wire, also modules count now
@@ -240,88 +287,164 @@ local function IsPlaceableItem(prototype)
 	end
 end
 
+--This whole function exists because find_empty_stack returns the index of the hand icon slot, which is not writeable to
+local function FindEmptyStackIndex(inventory, handslot, player)
+	local playerData = global.playerData[player.index]
+	local lastIndex = playerData.lastEmptySlot
+	local inventorySize = #inventory
+
+	--first, we can see if the last recorded empty slot is still empty
+	if lastIndex >= 1 and lastIndex <= inventorySize then
+		if inventory[lastIndex].count == 0 then
+			if inventory.get_filter(lastIndex) == nil then
+				return lastIndex
+			end
+		end
+	end
+
+	--This function counts the hand slot as empty, which is not actually useable so we just subtract 1
+	local emptyStacks = inventory.count_empty_stacks() - 1
+
+	if emptyStacks >= 1 then
+		--we should have a valid empty stack to work with! lets find it starting from the end of the inventory
+		for index = inventorySize, 1, -1 do
+			--Check if the stack is 'empty' (it might still have a filter!)
+			if inventory[index].count == 0 then
+				--Check if the stack has a filter, if so we skip to the next candidate
+				if inventory.get_filter(index) == nil then
+					--store the index in the playerdata for faster lookup in the future (atleast until its no longer empty)
+					playerData.lastEmptySlot = index
+					return index
+				end
+			end
+		end
+
+		--if somehow we find no candidate, return nil
+		return nil
+	else
+		return nil
+	end
+
+end
+
 local function CheckInventory(player, inventory, buttonData, handSlot)
 	local itemValidCache = global.itemValidCache
-	local playerStack = nil
-	local itemsInserted = false
-	if handSlot ~= -1 then
-		global.ignoreEventFlag = true
+	local useableStack = nil
+	local index = nil
 
-		--Put a duplicate of the held stack back into the inventory temporarily so that contents will be in proper order
-		local pStack = player.cursor_stack
-		local name = pStack.name
+	if handSlot ~= -1 then
+		local name = player.cursor_stack.name
+		--No need to mess with the players hand contents if the contents are not a valid 'placeable' item for this mod
 		if itemValidCache[name] then
-			if not pStack.is_item_with_entity_data and not pStack.is_item_with_inventory then
-				local count = inventory.insert(pStack)
-				if count ~= 0 then
-					itemsInserted = true
-					playerStack = {name = name, count = count}
-				end
-			end
-		end
-	end
-	local contents = inventory.get_contents()
-	for key, value in pairs(contents) do
-		if itemValidCache[key] then
-			buttonData[key] = {count = value}
-		else
-			if itemValidCache[key] == nil then
-				--Determine if item is placeable and cache the result
-				itemValidCache[key] = IsPlaceableItem(game.item_prototypes[key])
-				if itemValidCache[key] then
-					buttonData[key] = {count = value}
-				end
+
+			--we need an empty stack to duplicate the held item for easy calculations, as in, I want what the player is holding to be shown as well.
+			--because the find_empty_stack() function does not function properly (and returns the hand slot usually) we have to make our own, with blackjack and biters.
+			index = FindEmptyStackIndex(inventory, handSlot, player)
+
+			--if we found an empty stack then we can manipulate it now
+			if index ~= nil then useableStack = inventory[index] end
+			if useableStack ~= nil then
+			
+				--if I remember right, I trigger this function a second time whenever I put an item temporarily into the player's inventory.
+				--I dont want to run calculations a second time, or infinite times, so I have to use this to stop that from happening.
+				--note: this is no longer needed due to the function refusing to run more than once every 2 ticks.
+				--global.ignoreEventFlag = true
+
+				--now, let's duplicate whats in the player's hand and hope nothing explodes.
+				useableStack.set_stack(player.cursor_stack)
 			end
 		end
 	end
 
-	if handSlot ~= -1 then
-		--Remove the duplicated items from the inventory
-		if itemsInserted then
-			inventory.remove(playerStack)
+	--now that the contents of the player's hand is (hopefully) in the inventory, calculations can commence.
+	local contents = inventory.get_contents()
+
+	--loop through the contents of the players inventory and record the amount of any placeables
+	for key, value in pairs(contents) do
+		--do we know if the item is placeable yet?
+		if itemValidCache[key] == nil then
+			--Determine if item is placeable and cache the result
+			itemValidCache[key] = IsPlaceableItem(game.item_prototypes[key])
 		end
+
+		--is the item placeable?
+		if itemValidCache[key] then
+			--record the aount of items of this type held
+			buttonData[key] = {count = value}
+		end
+	end
+
+	--clear the stack that i created to calculate what was in the players hand, if any
+	if useableStack ~= nil then
+		useableStack.clear()
 	end
 end
 
+
 local function UpdateGUI(playerIndex)
 	local player = game.get_player(playerIndex)
-	local playerData = global.playerData[player.index]
+	local playerData = global.playerData[playerIndex]
 	local inventory = player.get_main_inventory()
-	local buttonTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.framePlaceablesTable
+	local buttonTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.framePlaceablesTable
 
 	--Updating to new mod version: Delete all the buttons if buttonCache is empty
 	if playerData.buttonCache[1] == nil then buttonTable.clear() end
 
-	--Delete the old list of buttons
-	playerData.buttonData = {}
-	--Sorts the inventory if the player has autosort on, solves an edge case
-	if player.auto_sort_main_inventory then inventory.sort_and_merge() end
+	--Skip in the odd case that the players inventory *doesn't exist* most likely due to spaceEx compatibility
+	if inventory then
+		--Delete the old list of buttons
+		playerData.buttonData = {}
 
-	--Create list of buttons to be made by looping through the player's inventory
-	local handSlot = -1
-	if player.hand_location ~= nil then handSlot = player.hand_location.slot end
-	CheckInventory(player, inventory, playerData.buttonData, handSlot)
-
-	--Recreate all the item buttons
-	CreateItemButtons(player, buttonTable)
-end
-
-local function CallUpdateWhenNotFlagged(event)
-	if global.ignoreEventFlag == false then
-		UpdateGUI(event.player_index)
-	else
-		global.ignoreEventFlag = false
+		--Create list of buttons to be made by looping through the player's inventory
+		local handSlot = -1
+		if player.hand_location ~= nil then handSlot = player.hand_location.slot end
+		CheckInventory(player, inventory, playerData.buttonData, handSlot)
+		--Recreate all the item buttons
+		CreateItemButtons(player, buttonTable)
 	end
 end
+
+
+local function CallUpdateWhenNotFlagged(event)
+	--even though the biggest cause of the ignoreEventFlag is no longer happening, that is, whenever the inventory
+	-- is checked. there is still a couple times where this flag is enabled in the PlayerRemovedEntity and PressButton
+	-- events. But i also want this to be per-player now instead of global so ignoreEventFlag is going to become
+	-- playerData.ignoreNextUpdate
+
+	if event.player_index ~= nil then
+		local playerIndex = event.player_index
+		local playerData = global.playerData[playerIndex]
+
+		if playerData.ignoreNextUpdate == false then
+			--Only continue if it has not been run this tick or last tick, otherwise it could run infinitely
+			if ( (game.tick - playerData.lastEventTick) > 1) then
+				UpdateGUI(playerIndex)
+				playerData.lastEventTick = game.tick
+			end
+		else
+			playerData.ignoreNextUpdate = false
+		end
+	end
+
+
+	-- if global.ignoreEventFlag == false then
+	-- 	UpdateGUI(event.player_index)
+	-- else
+	-- 	global.ignoreEventFlag = false
+	-- end
+end
 script.on_event(defines.events.on_player_main_inventory_changed, CallUpdateWhenNotFlagged)
+script.on_event(defines.events.on_player_cursor_stack_changed, CallUpdateWhenNotFlagged)
+
 
 local function PlayerRemovedEntity(event)
 	local itemValidCache = global.itemValidCache
 	local player = game.get_player(event.player_index)
-	local buttonData = global.playerData[player.index].buttonData
+	local playerData = global.playerData[player.index]
+	local buttonData = playerData.buttonData
 	local itemName = event.item_stack.name
 	local itemCount = event.item_stack.count
-	local guiTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.framePlaceablesTable
+	local guiTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.framePlaceablesTable
 
 	if itemValidCache[itemName] then
 		if buttonData[itemName] ~= nil then
@@ -329,7 +452,7 @@ local function PlayerRemovedEntity(event)
 			buttonData[itemName].count = buttonData[itemName].count + itemCount
 			button.number = buttonData[itemName].count
 			--Skip the next UpdateGUI function call since we updated the changed button here
-			global.ignoreEventFlag = true
+			playerData.ignoreNextUpdate = true
 		else
 			--This item is valid but a button for it doesnt exist. Force update the GUI
 			UpdateGUI(event.player_index)
@@ -337,7 +460,7 @@ local function PlayerRemovedEntity(event)
 	else
 		if itemValidCache[itemName] == false then
 			--Skip the next UpdateGUI function call because the item mined isnt supposed to be displayed on the button list anyway
-			global.ignoreEventFlag = true
+			playerData.ignoreNextUpdate = true
 		else
 			--This item hasnt been validated yet. Validate the item.
 			itemValidCache[itemName] = IsPlaceableItem(game.item_prototypes[itemName])
@@ -347,13 +470,16 @@ local function PlayerRemovedEntity(event)
 			end
 		end
 	end
+	playerData.lastEventTick = game.tick
 end
 script.on_event(defines.events.on_player_mined_item, PlayerRemovedEntity)
 
+
 local function PlayerPlacedEntity(event)
 	local player = game.get_player(event.player_index)
-	local buttonData = global.playerData[player.index].buttonData
-	local guiTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.framePlaceablesTable
+	local playerData = global.playerData[player.index]
+	local buttonData = playerData.buttonData
+	local guiTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.framePlaceablesTable
 
 	local entityName = event.created_entity.name
 	--If the item is a ghost, skip everything
@@ -371,20 +497,30 @@ local function PlayerPlacedEntity(event)
 			local button = guiTable["buttonPlaceables"..buttonData[name].buttonIndex]
 			--Reduce the number on the button by 1
 			buttonData[name].count = buttonData[name].count - 1
-			button.number = buttonData[name].count
-			--If number becomes zero, hide button
-			if button.number == 0 then
+
+			--Bandaid error check incase the buttons dont exist for some reason
+			if button ~= nil then
+				button.number = buttonData[name].count
+				--If number becomes zero, hide button
+				if button.number == 0 then
+					UpdateGUI(event.player_index)
+				end
+			else
+				--Bandaid attempt to create the GUI if for *some* reason it doesnt exist.
 				UpdateGUI(event.player_index)
 			end
 		end
 	end
+	playerData.lastEventTick = game.tick
 end
 script.on_event(defines.events.on_built_entity, PlayerPlacedEntity)
 
+
 local function PlayerPlacedTile(event)
 	local player = game.get_player(event.player_index)
-	local buttonData = global.playerData[player.index].buttonData
-	local guiTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.framePlaceablesTable
+	local playerData = global.playerData[player.index]
+	local buttonData = playerData.buttonData
+	local guiTable = player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.framePlaceablesTable
 
 	local item = event.item
 	--There is a couple cases where item might not be given. In these cases we will just end the function
@@ -414,14 +550,17 @@ local function PlayerPlacedTile(event)
 			UpdateGUI(event.player_index)
 		end
 	end
+	playerData.lastEventTick = game.tick
 end
 script.on_event(defines.events.on_player_built_tile, PlayerPlacedTile)
+
 
 local function PressButton(event)
 	--If the element clicked isnt part of this mod, do nothing
 	if event.element.get_mod() == "Placeables" then
 		local player = game.get_player(event.player_index)
 		local playerData = global.playerData[player.index]
+		local updateFlag = true
 
 		--Check to see if there is a number attached to the element, if so that is one of the dynamically generated buttons
 		local buttonNumber = tonumber(string.match(event.element.name, "%d+"))
@@ -445,6 +584,10 @@ local function PressButton(event)
 					end
 				end
 			end
+
+			--the GUI in theory should not need to be updated cause all i did was move stuff between the cursor and the
+			-- players inventory. by stopping the GUI being updated later, this may also fix a bug.
+			updateFlag = false
 		end
 
 		--Player clicked the top-left button that isnt part of the placeables window
@@ -490,7 +633,7 @@ local function PressButton(event)
 		--If column count changes, we need to destroy the table of buttons and rebuild
 		if playerData.lastColumns ~= playerData.settingColumns then
 			local innerFrame = player.gui.screen.framePlaceablesOuter.framePlaceablesInner
-			innerFrame.framePlaceablesTable.destroy()
+			innerFrame.scrollPanePlaceables.framePlaceablesTable.destroy()
 			playerData.buttonCache = {}
 
 			--Partially hides the word 'Placeables' and removes the leftmost button when the column amount is 4
@@ -503,21 +646,43 @@ local function PressButton(event)
 				titleFlow.placeablesLabel.caption = "Placeables"
 			end
 			--Recreate the holder for the buttons that will be re-added later
-			innerFrame.add{type = "table", name = "framePlaceablesTable", column_count = playerData.settingColumns, style = "quick_bar_slot_table"}
+			innerFrame.scrollPanePlaceables.add{type = "table", name = "framePlaceablesTable", column_count = playerData.settingColumns, style = "quick_bar_slot_table"}
 		end
 		--Record the amount of columns displayed for future calculations
 		playerData.lastColumns = playerData.settingColumns
 
-		UpdateGUI(event.player_index)
+		--attempting to fix a bug regarding the spontaneous healing of damaged buildings in your inventory
+		--note: this bug should be fixed in general now, so this probably needs to be changed somewhat to remove redundant code
+		if updateFlag then
+			UpdateGUI(event.player_index)
+		else
+			--this should almost always be the case, we dont want to do a full inventory check on button presses usually
+			playerData.ignoreNextUpdate = true
+		end
 	end
 end
 script.on_event(defines.events.on_gui_click, PressButton)
 
+
+local function SpaceExCompat()
+	--If the SpaceEx mod is installed, register the 'satnav exited' event
+	local spaceExInterfaces = remote.interfaces["space-exploration"]
+	if spaceExInterfaces then
+		if spaceExInterfaces.get_on_remote_view_stopped_event then
+			--If the satnav event fires, update the GUI
+			script.on_event(remote.call("space-exploration", "get_on_remote_view_stopped_event"), CallUpdateWhenNotFlagged)
+		end
+	end
+end
+script.on_load(SpaceExCompat)
+
+
 local function InitializeMod()
 	--Loop through every player and create the GUI/data for that player
-	global.playerData = {}
+	global.playerData = global.playerData or {}
 	global.itemValidCache = {}
-	global.ignoreEventFlag = false
+	--ignoreEventFlag is deprecated and replaced by global.playerData[player].ignoreNextUpdate
+	--global.ignoreEventFlag = false
 	for key, value in pairs(game.players) do
 		CreatePlayerData(game.players[key].index)
 		CreateGUI(game.players[key])
@@ -531,10 +696,14 @@ local function InitializeMod()
 			UpdateGUI(game.players[key].index)
 		end
 	end
+
+	--Register satnav event if SpaceEx exists
+	SpaceExCompat()
 end
 script.on_init(InitializeMod)
 script.on_event(defines.events.on_player_created, InitializeMod)
 script.on_configuration_changed(InitializeMod)
+
 
 local function SettingsChanged(event)
 	local settingName = event.setting
@@ -552,8 +721,15 @@ local function SettingsChanged(event)
 		titleFlow.placeablesTitleDragRight.visible = powerUser
 		titleFlow.placeablesLabelRight.visible = powerUser
 	end
+
+	if settingName == "placeablesSettingRowHeight" then
+		local player = game.get_player(event.player_index)
+		local rows = player.mod_settings["placeablesSettingRowHeight"].value
+		player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 64 * rows
+	end
 end
 script.on_event(defines.events.on_runtime_mod_setting_changed, SettingsChanged)
+
 
 local function ToggleVisibility(event)
 	--This is when a player presses Ctrl-Shift-P by default
@@ -563,6 +739,7 @@ local function ToggleVisibility(event)
 	player.gui.screen.framePlaceablesOuter.visible = playerData.placeablesVisibleState
 end
 script.on_event("placeablesToggleVisibilty", ToggleVisibility)
+
 
 local function ToggleCollapse(event)
 	--This is when a player presses Ctrl-P by default

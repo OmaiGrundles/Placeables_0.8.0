@@ -12,5 +12,13 @@ data:extend({
         setting_type = "runtime-per-user",
         default_value = false,
         order = "b"
+    },
+    {
+        type = "int-setting",
+        name = "placeablesSettingRowHeight",
+        setting_type = "runtime-per-user",
+        default_value = 8,
+        minimum_value = 1,
+        order = "c"
     }
 })
