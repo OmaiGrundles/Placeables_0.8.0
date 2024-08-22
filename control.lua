@@ -2,7 +2,7 @@
 --   Change graphic for button on top left
 --   Add shortcut button using graphic mentioned above
 --   Add more condensed function for when a player is created vs when the game starts
-
+local scroll_pane_margin = 8
 local mod_gui = require("mod-gui")
 
 --globals and their initial states
@@ -133,26 +133,20 @@ local function CreateGUI(player)
 
 		--Middle layer, after the horizontal flow, borders the buttons
 		outerFrame.add{type = "frame", name = "framePlaceablesInner", style = "quick_bar_inner_panel"}
-
-		--Scroll Pane for PlaceablesTable
-		outerFrame.framePlaceablesInner.add{type = "scroll-pane", name = "scrollPanePlaceables", horizontal_scroll_policy = "never", vertical_scroll_policy = "always"}
-		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.padding = 0
-		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.margin = 0
-		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 64 * player.mod_settings["placeablesSettingRowHeight"].value
-		--Table that holds all the buttons for each unique placeable item
-		outerFrame.framePlaceablesInner.scrollPanePlaceables.add{type = "table", name = "framePlaceablesTable", column_count = playerData.settingColumns, style = "quick_bar_slot_table"}
 	end
 
 	if player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables == nil then
 		local outerFrame = player.gui.screen.framePlaceablesOuter
 		--Remove placeable table so that a new one is in a scroll pane
-		outerFrame.framePlaceablesInner.framePlaceablesTable.destroy()
+		if outerFrame.framePlaceablesInner.framePlaceablesTable ~= nil then
+			outerFrame.framePlaceablesInner.framePlaceablesTable.destroy()
+		end
 
 		--Scroll Pane for PlaceablesTable
 		outerFrame.framePlaceablesInner.add{type = "scroll-pane", name = "scrollPanePlaceables", horizontal_scroll_policy = "never", vertical_scroll_policy = "always"}
 		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.padding = 0
 		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.margin = 0
-		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 64 * player.mod_settings["placeablesSettingRowHeight"].value
+		outerFrame.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 40 * player.mod_settings["placeablesSettingRowHeight"].value + scroll_pane_margin
 		--Table that holds all the buttons for each unique placeable item
 		outerFrame.framePlaceablesInner.scrollPanePlaceables.add{type = "table", name = "framePlaceablesTable", column_count = playerData.settingColumns, style = "quick_bar_slot_table"}
 	end
@@ -725,7 +719,7 @@ local function SettingsChanged(event)
 	if settingName == "placeablesSettingRowHeight" then
 		local player = game.get_player(event.player_index)
 		local rows = player.mod_settings["placeablesSettingRowHeight"].value
-		player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 64 * rows
+		player.gui.screen.framePlaceablesOuter.framePlaceablesInner.scrollPanePlaceables.style.maximal_height = 40 * rows + scroll_pane_margin
 	end
 end
 script.on_event(defines.events.on_runtime_mod_setting_changed, SettingsChanged)
