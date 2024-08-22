@@ -1,4 +1,79 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.4.2
+Date: 2024-8-22
+  Changes:
+    - Added max button lines to the GUI (Default: 8)
+    - Added max button line settings
+
+---------------------------------------------------------------------------------------------------
+Version: 1.4.1
+Date: 2024-1-11
+  Bugfixes:
+    - Fixes GUI not updating when placing items into containers by clicking the item and clicking the slot in the container's inventory.
+  Changes:
+    - Possible performance increase when being spammed by logistics bots interacting with your inventory.
+
+---------------------------------------------------------------------------------------------------
+Version: 1.3.0
+Date: 2023-6-02
+  Bugfixes:
+    - Should fix all issues that arose from 1.2.0 (finally), also performance tweaks.
+
+---------------------------------------------------------------------------------------------------
+Version: 1.2.3
+Date: 2023-5-13
+  Bugfixes:
+    - Fixes crash when exiting satNav while in a launching cargo rocket in SE (and any other instance when the player has a nil inventory)
+
+---------------------------------------------------------------------------------------------------
+Version: 1.2.2
+Date: 2023-5-12
+  Bugfixes:
+    - Fixes multiplayer issued due to the previous update, sorry!
+
+---------------------------------------------------------------------------------------------------
+Version: 1.2.1
+Date: 2023-5-12
+  Bugfixes:
+    - When leaving satNav in SpaceExploration, placeables now updates the GUI instantaneously.
+
+---------------------------------------------------------------------------------------------------
+Version: 1.2.0
+Date: 2023-5-03
+  Bugfixes:
+    - Fixes a LOT of edge cases and other issues that were accumulating, should also increase performance.
+  Changes:
+    - Incorporated the icon from the GUI Unifier mod (be sure to check out GUI Unifier!)
+
+---------------------------------------------------------------------------------------------------
+Version: 1.1.9
+Date: 2023-1-25
+  Bugfixes:
+    - Potentially fixes a crash that is caused by the GUI not being fully created.
+  Changes:
+    - Changed the title a bit to try to inform what the mod does a bit easier.
+
+---------------------------------------------------------------------------------------------------
+Version: 1.1.8
+Date: 2023-1-23
+  Bugfixes:
+    - Fixes buildings sometimes losing tags when placed/removed
+    - Slight Locale Fix
+
+---------------------------------------------------------------------------------------------------
+Version: 1.1.7
+Date: 2022-6-14
+  Bugfixes:
+    - Fixes an issue of damaged buildings in inventory replacing full health ones
+    - Partially fixes an issue of full health buildings in inventory replacing damaged ones
+
+---------------------------------------------------------------------------------------------------
+Version: 1.1.6
+Date: 2022-6-14
+  Bugfixes:
+    - Fixes an issue of the players GUI placement and size being deleted
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.5
 Date: 2022-6-14
   Bugfixes:
